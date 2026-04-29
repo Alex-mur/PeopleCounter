@@ -136,7 +136,7 @@
             <label class="form-label">Роль</label>
             <select v-model="userForm.role" class="form-input" required>
               <option value="admin">Администратор</option>
-              <option value="viewer">Зритель</option>
+              <option value="viewer">Пользователь</option>
             </select>
           </div>
           <div class="modal-buttons">
