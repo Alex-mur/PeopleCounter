@@ -1,0 +1,5 @@
+[SERVICE]
+port = 8000
+api_key = secret_key_123
+keep_logs_days = 7
+

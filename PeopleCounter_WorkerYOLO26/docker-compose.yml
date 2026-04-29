@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  peoplecounter-worker-y26:
+    build: .
+    container_name: people_counter_worker_y26
+    network_mode: "host"
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1

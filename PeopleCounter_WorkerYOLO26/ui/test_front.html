@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление счетчиками</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .video-container { width: 100%; min-height: 400px; background: #000; display: flex; align-items: center; justify-content: center; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        .video-container img { max-width: 100%; height: auto; display: block; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-start { background-color: #4CAF50; }
+        .btn-stop { background-color: #f44336; }
+        .btn-add { background-color: #2196F3; margin-top: 10px; }
+        .btn-remove { background-color: #f44336; padding: 5px 10px; font-size: 12px; }
+        .btn-refresh { background-color: #ff9800; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        td input { width: 70px; }
+        td input.name-input { width: 120px; }
+        .count-badge { background: #4CAF50; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold; }
+        .counter-list-item { padding: 10px; border: 1px solid #ddd; margin-bottom: 10px; border-radius: 4px; cursor: pointer; }
+        .counter-list-item:hover { background: #f0f0f0; }
+        .counter-list-item.active { border-left: 5px solid #2196F3; background: #e3f2fd; }
+        .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="grid">
+        <!-- Левая колонка: Список и Видео -->
+        <div class="card">
+            <h3>Список счетчиков</h3>
+            <button class="btn btn-refresh" onclick="loadCounters()">Обновить список</button>
+            <div id="counters-list"></div>
+
+            <h3 style="margin-top:20px;">Видеопоток</h3>
+            <div class="video-container">
+                <span id="video-placeholder" style="color: white;">Выберите запущенный счетчик</span>
+                <img id="video-feed" src="" alt="Video feed" style="display: none;">
+            </div>
+
+            <h3 style="margin-top:20px;">Статистика за час (Обновляется раз в минуту)</h3>
+            <div id="stats-container">Выберите запущенный счетчик</div>
+        </div>
+
+        <!-- Правая колонка: Редактирование / Добавление -->
+        <div class="card" id="editor-card">
+            <h3 id="editor-title">Добавить / Редактировать счетчик</h3>
+            <form id="counter-form">
+                <div class="flex-row">
+                    <div style="flex:1">
+                        <label>ID</label>
+                        <input type="number" id="c-id" required>
+                    </div>
+                    <div style="flex:2">
+                        <label>Название</label>
+                        <input type="text" id="c-name" required>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Описание</label>
+                    <input type="text" id="c-desc">
+                </div>
+
+                <div class="control-group">
+                    <label>URL (RTSP/HTTP/Файл)</label>
+                    <input type="text" id="c-url" placeholder="http://... или rtsp://..." required>
+                </div>
+                <div class="control-group">
+                    <label>vid_stride (1-10): <span id="c-vid-stride-val">1</span></label>
+                    <input type="range" id="c-vid-stride" min="1" max="10" value="1" oninput="document.getElementById('c-vid-stride-val').innerText=this.value">
+                </div>
+
+
+                <hr style="margin:20px 0;">
+
+                <h4>Группы линий</h4>
+                <table id="groups-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Описание</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="groups-body"></tbody>
+                </table>
+                <button type="button" class="btn btn-add" onclick="addGroup()">+ Добавить группу</button>
+
+                <hr style="margin:20px 0;">
+
+                <h4>Линии</h4>
+                <table id="lines-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Группа</th>
+                            <th>X нач</th>
+                            <th>Y нач</th>
+                            <th>X кон</th>
+                            <th>Y кон</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lines-body"></tbody>
+                </table>
+                <button type="button" class="btn btn-add" onclick="addLine()">+ Добавить линию</button>
+
+                <div style="display: flex; gap: 10px; margin-top: 30px;">
+                    <button type="button" class="btn btn-start" style="flex: 1;" onclick="saveCounter()">Сохранить и запустить</button>
+                    <button type="button" class="btn btn-stop" style="flex: 1;" id="btn-delete" onclick="deleteCounter()" disabled>Удалить счетчик</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_URL = "http://localhost:8000/api";
+const API_KEY = "secret_key_123";
+
+let currentCounters = [];
+let selectedCounterId = null;
+
+let editorLines = [];
+let editorGroups = [];
+let statsInterval = null;
+
+// Инициализация
+window.onload = () => {
+    loadCounters();
+};
+
+async function apiRequest(endpoint, method="GET", body=null) {
+    const headers = {
+        "X-API-Key": API_KEY,
+        "Accept": "application/json"
+    };
+    if (body) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    const options = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+
+    const res = await fetch(`${API_URL}${endpoint}`, options);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "API Error");
+    return data;
+}
+
+async function loadCounters() {
+    try {
+        currentCounters = await apiRequest("/counters");
+        renderCountersList();
+    } catch (e) {
+        alert("Ошибка загрузки счетчиков: " + e.message);
+    }
+}
+
+function renderCountersList() {
+    const container = document.getElementById("counters-list");
+    container.innerHTML = "";
+
+    // Кнопка для создания нового
+    const createNewBtn = document.createElement("div");
+    createNewBtn.className = "counter-list-item";
+    createNewBtn.style.textAlign = "center";
+    createNewBtn.style.fontWeight = "bold";
+    createNewBtn.innerText = "+ Создать новый счетчик";
+    createNewBtn.onclick = () => selectCounter(null);
+    container.appendChild(createNewBtn);
+
+    currentCounters.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "counter-list-item" + (c.id === selectedCounterId ? " active" : "");
+        div.innerHTML = `
+            <strong>ID: ${c.id} | ${c.name}</strong>
+            <span class="count-badge" style="background:${c.running ? '#4CAF50' : '#f44336'}">
+                ${c.running ? 'Работает' : 'Остановлен'}
+            </span>
+            <div style="font-size:12px; color:#666; margin-top:5px;">${c.url}</div>
+        `;
+        div.onclick = () => selectCounter(c.id);
+        container.appendChild(div);
+    });
+}
+
+function selectCounter(id) {
+    selectedCounterId = id;
+    renderCountersList();
+
+    clearInterval(statsInterval);
+    document.getElementById("stats-container").innerHTML = "Нет данных";
+
+    if (id === null) {
+        document.getElementById("editor-title").innerText = "Добавить новый счетчик";
+        document.getElementById("c-id").value = Math.floor(Math.random() * 10000);
+        document.getElementById("c-id").disabled = false;
+        document.getElementById("c-name").value = "New Counter";
+        document.getElementById("c-desc").value = "";
+        document.getElementById("c-url").value = "";
+        document.getElementById("c-vid-stride").value = 1;
+        document.getElementById("c-vid-stride-val").innerText = "1";
+        editorGroups = [{ id: 1, description: "Основная группа" }];
+        editorLines = [
+            { id: 1, name: "Line 1", group_id: 1, start: [100,200], end: [500,200] }
+        ];
+        document.getElementById("btn-delete").disabled = true;
+        hideVideo();
+    } else {
+        document.getElementById("editor-title").innerText = "Редактировать счетчик";
+        const c = currentCounters.find(x => x.id === id);
+        document.getElementById("c-id").value = c.id;
+        document.getElementById("c-id").disabled = true;
+        document.getElementById("c-name").value = c.name;
+        document.getElementById("c-desc").value = c.description || "";
+        document.getElementById("c-url").value = c.url;
+        document.getElementById("c-vid-stride").value = c.vid_stride || 1;
+        document.getElementById("c-vid-stride-val").innerText = c.vid_stride || 1;
+
+        editorGroups = c.groups || [];
+        editorLines = c.lines || [];
+        document.getElementById("btn-delete").disabled = false;
+
+        if (c.running) {
+            showVideo(c.id);
+            startStatsPolling(c.id);
+        } else {
+            hideVideo();
+        }
+    }
+
+    renderGroups();
+    renderLines();
+}
+
+function showVideo(id) {
+    const img = document.getElementById("video-feed");
+    img.src = `${API_URL}/counters/${id}/stream?api_key=${API_KEY}&t=${new Date().getTime()}`;
+    img.style.display = "block";
+    document.getElementById("video-placeholder").style.display = "none";
+}
+
+function hideVideo() {
+    document.getElementById("video-feed").src = "";
+    document.getElementById("video-feed").style.display = "none";
+    document.getElementById("video-placeholder").style.display = "block";
+}
+
+// ----- GROUPS -----
+function renderGroups() {
+    const tbody = document.getElementById("groups-body");
+    tbody.innerHTML = "";
+    editorGroups.forEach((g, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><input type="number" value="${g.id}" onchange="updateGroup(${i}, 'id', this.value)"></td>
+            <td><input type="text" value="${g.description}" style="width:100%" onchange="updateGroup(${i}, 'description', this.value)"></td>
+            <td><button type="button" class="btn btn-remove" onclick="removeGroup(${i})">X</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    renderLines(); // To update group selects in lines
+}
+
+function addGroup() {
+    const newId = editorGroups.length > 0 ? Math.max(...editorGroups.map(g => g.id)) + 1 : 1;
+    editorGroups.push({ id: newId, description: "Новая группа" });
+    renderGroups();
+}
+
+function removeGroup(index) {
+    editorGroups.splice(index, 1);
+    renderGroups();
+}
+
+function updateGroup(index, field, value) {
+    editorGroups[index][field] = field === 'id' ? parseInt(value) : value;
+    renderGroups();
+}
+
+// ----- LINES -----
+function renderLines() {
+    const tbody = document.getElementById("lines-body");
+    tbody.innerHTML = "";
+
+    let groupOptions = editorGroups.map(g => `<option value="${g.id}">${g.id} - ${g.description}</option>`).join('');
+
+    editorLines.forEach((l, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><input type="text" class="name-input" value="${l.name}" onchange="updateLine(${i}, 'name', this.value)"></td>
+            <td>
+                <select onchange="updateLine(${i}, 'group_id', this.value)">
+                    ${editorGroups.map(g => `<option value="${g.id}" ${l.group_id === g.id ? 'selected' : ''}>${g.id}</option>`).join('')}
+                </select>
+            </td>
+            <td><input type="number" value="${l.start[0]}" onchange="updateLine(${i}, 'startX', this.value)"></td>
+            <td><input type="number" value="${l.start[1]}" onchange="updateLine(${i}, 'startY', this.value)"></td>
+            <td><input type="number" value="${l.end[0]}" onchange="updateLine(${i}, 'endX', this.value)"></td>
+            <td><input type="number" value="${l.end[1]}" onchange="updateLine(${i}, 'endY', this.value)"></td>
+            <td><button type="button" class="btn btn-remove" onclick="removeLine(${i})">X</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function addLine() {
+    const defGroup = editorGroups.length > 0 ? editorGroups[0].id : 1;
+    editorLines.push({
+        id: editorLines.length + 1,
+        name: `Line ${editorLines.length + 1}`,
+        group_id: defGroup,
+        start: [100, 200],
+        end: [300, 200]
+    });
+    renderLines();
+}
+
+function removeLine(index) {
+    editorLines.splice(index, 1);
+    renderLines();
+}
+
+function updateLine(index, field, value) {
+    if (field === 'name') editorLines[index].name = value;
+    if (field === 'group_id') editorLines[index].group_id = parseInt(value);
+    if (field === 'startX') editorLines[index].start[0] = parseInt(value);
+    if (field === 'startY') editorLines[index].start[1] = parseInt(value);
+    if (field === 'endX') editorLines[index].end[0] = parseInt(value);
+    if (field === 'endY') editorLines[index].end[1] = parseInt(value);
+}
+
+// ----- API ACTIONS -----
+async function saveCounter() {
+    const id = parseInt(document.getElementById("c-id").value);
+    const name = document.getElementById("c-name").value;
+    const desc = document.getElementById("c-desc").value;
+    const url = document.getElementById("c-url").value;
+    const vidStride = parseInt(document.getElementById("c-vid-stride").value, 10);
+
+    const payload = {
+        id: id,
+        name: name,
+        description: desc,
+        url: url,
+        vid_stride: vidStride,
+        lines: editorLines,
+        groups: editorGroups
+    };
+
+    try {
+        const isExisting = currentCounters.some(c => c.id === id);
+
+        if (isExisting) {
+            await apiRequest(`/counters/${id}`, "PUT", payload);
+        } else {
+            await apiRequest(`/counters`, "POST", payload);
+        }
+
+        alert("Успешно сохранено и запущено!");
+        await loadCounters();
+        selectCounter(id);
+    } catch (e) {
+        alert("Ошибка: " + e.message);
+    }
+}
+
+async function deleteCounter() {
+    if (!selectedCounterId) return;
+    if (!confirm("Вы уверены, что хотите удалить этот счетчик?")) return;
+
+    try {
+        await apiRequest(`/counters/${selectedCounterId}`, "DELETE");
+        alert("Удалено");
+        await loadCounters();
+        selectCounter(null);
+    } catch(e) {
+        alert("Ошибка: " + e.message);
+    }
+}
+
+// ----- POLLING STATS -----
+function startStatsPolling(id) {
+    clearInterval(statsInterval);
+    statsInterval = setInterval(async () => {
+        try {
+            const data = await apiRequest(`/counters/${id}/stats?period=hour`);
+            let html = "<ul style='list-style:none; padding:0;'>";
+            if (data.realtime_current_hour) {
+                data.realtime_current_hour.forEach(s => {
+                    const g = editorGroups.find(x => x.id === s.group_id);
+                    const gName = g ? g.description : `Группа ${s.group_id}`;
+                    html += `<li style="margin-bottom:5px;">${gName}: <span class="count-badge">${s.passes}</span></li>`;
+                });
+            }
+            if(html === "<ul style='list-style:none; padding:0;'>") html = "Нет проходов в текущем часе";
+            else html += "</ul>";
+            document.getElementById("stats-container").innerHTML = html;
+        } catch(e) {
+            console.error(e);
+        }
+    }, 2000);
+}
+
+</script>
+</body>
+</html>

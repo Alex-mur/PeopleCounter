@@ -1,0 +1,5 @@
+{
+  "api_port": 9000,
+  "jwt_secret": "super_secret_jwt_key_please_change",
+  "db_conn_string": "postgres://dbuser:dbpass@192.168.1.100:5432/DBNAME?sslmode=disable"
+}

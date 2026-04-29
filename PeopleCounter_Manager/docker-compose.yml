@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  peoplecounter-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: peoplecounter-manager:latest
+    container_name: peoplecounter-manager
+    network_mode: host
+    volumes:
+      - ./config.json:/workspace/config.json:ro
+    restart: unless-stopped

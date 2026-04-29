@@ -1,0 +1,12 @@
+.idea
+include
+Lib
+Scripts
+pyvenv.cfg
+uploads
+venv
+__pycache__
+db
+counters.duckdb
+counters.duckdb.wal
+config.ini

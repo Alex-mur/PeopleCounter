@@ -1,0 +1,1 @@
+"C:\Program Files\VideoLan\VLC\vlc.exe" --loop "samples\sample_2.mp4" --sout="#transcode{vcodec=mjpg,acodec=none}:standard{access=http,mux=mpjpeg,dst=:34588/stream.mjpg}"

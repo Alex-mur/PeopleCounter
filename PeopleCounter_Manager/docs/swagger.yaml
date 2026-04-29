@@ -1,0 +1,830 @@
+basePath: /
+definitions:
+  PeopleCounter_Manager_internal_models.APIStatsResponse:
+    properties:
+      counter_id:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterStatsRecord'
+        type: array
+      period:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.Counter:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      groups:
+        items:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.LinesGroup'
+        type: array
+      id:
+        type: integer
+      lines:
+        items:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.Line'
+        type: array
+      name:
+        type: string
+      service_id:
+        type: integer
+      url:
+        type: string
+      vid_stride:
+        type: integer
+    type: object
+  PeopleCounter_Manager_internal_models.CounterService:
+    properties:
+      api_key:
+        type: string
+      api_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.CounterStatsRecord:
+    properties:
+      group_id:
+        type: integer
+      passes:
+        type: integer
+      period:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.Line:
+    properties:
+      end:
+        description: '[x, y]'
+        items:
+          type: integer
+        type: array
+      group_id:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+      start:
+        description: '[x, y]'
+        items:
+          type: integer
+        type: array
+    type: object
+  PeopleCounter_Manager_internal_models.LinesGroup:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+    type: object
+  PeopleCounter_Manager_internal_models.LoginRequest:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.User:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      login:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.UserCountersRequest:
+    properties:
+      counter_ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  PeopleCounter_Manager_internal_models.UserCreateRequest:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      login:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      role:
+        description: '"admin" или "viewer"'
+        type: string
+    type: object
+  PeopleCounter_Manager_internal_models.UserUpdateRequest:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        description: 'Указатель: если nil, пароль не меняется'
+        type: string
+      role:
+        type: string
+    type: object
+host: localhost:9000
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: REST API для управления счетчиками посетителей и сбора статистики
+  termsOfService: http://swagger.io/terms/
+  title: People Counter Manager API
+  version: "1.0"
+paths:
+  /api/counters:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает все камеры (админам) или только назначенные пользователю
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PeopleCounter_Manager_internal_models.Counter'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список счетчиков
+      tags:
+      - Counters
+    post:
+      consumes:
+      - application/json
+      description: Сохраняет камеру в БД и отправляет её конфигурацию (линии, группы)
+        на привязанный воркер.
+      parameters:
+      - description: Конфигурация камеры (url, lines, groups, service_id)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.Counter'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.Counter'
+        "400":
+          description: Неверный формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера или отказ воркера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать новый счетчик (камеру)
+      tags:
+      - Counters
+  /api/counters/{id}:
+    delete:
+      description: Удаляет камеру из БД и отправляет команду на остановку потока на
+        воркер.
+      parameters:
+      - description: ID камеры
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Успешное удаление
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "404":
+          description: Камера не найдена в БД
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить счетчик (камеру)
+      tags:
+      - Counters
+    put:
+      consumes:
+      - application/json
+      description: Обновляет конфигурацию камеры (линии, группы, URL) на лету. Изменения
+        применяются на воркере без остановки сервиса.
+      parameters:
+      - description: ID камеры
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Полная обновленная конфигурация
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.Counter'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.Counter'
+        "400":
+          description: Неверный ID или JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера или отказ воркера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить счетчик (камеру)
+      tags:
+      - Counters
+  /api/counters/{id}/stats:
+    get:
+      description: Возвращает агрегированную историю проходов для камеры, сгруппированную
+        по указанному периоду и ID группы.
+      parameters:
+      - description: ID камеры
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Период агрегации (hour, day, week, month, year). По умолчанию
+          'day'
+        in: query
+        name: period
+        type: string
+      - description: 'Начало диапазона (RFC3339, например: 2026-03-01T00:00:00Z)'
+        in: query
+        name: date_start
+        type: string
+      - description: 'Конец диапазона (RFC3339, например: 2026-03-31T23:59:59Z)'
+        in: query
+        name: date_end
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.APIStatsResponse'
+        "400":
+          description: Неверный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка формирования статистики
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить статистику счетчика
+      tags:
+      - Counters
+  /api/counters/{id}/stream:
+    get:
+      description: Проксирует живой MJPEG видеопоток с разметкой от воркера к клиенту.
+        Поддерживает токен в параметре запроса (?jwt=token).
+      parameters:
+      - description: ID камеры
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: JWT Token (альтернатива заголовку Authorization)
+        in: query
+        name: jwt
+        type: string
+      produces:
+      - multipart/x-mixed-replace
+      responses:
+        "200":
+          description: MJPEG Stream
+          schema:
+            type: string
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "502":
+          description: Не удалось подключиться к видеопотоку
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить MJPEG видеопоток
+      tags:
+      - Counters
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентифицирует пользователя по логину и паролю и возвращает пару
+        JWT токенов (access и refresh).
+      parameters:
+      - description: Учетные данные пользователя
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная авторизация
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.TokenResponse'
+        "400":
+          description: Неверный формат запроса
+          schema:
+            type: string
+        "401":
+          description: Неверный логин или пароль
+          schema:
+            type: string
+      summary: Вход в систему (Авторизация)
+      tags:
+      - Auth
+  /api/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Принимает действующий refresh токен и возвращает новую пару токенов
+        (access и refresh).
+      parameters:
+      - description: Refresh токен
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Новая пара токенов
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.TokenResponse'
+        "400":
+          description: Неверный формат запроса
+          schema:
+            type: string
+        "401":
+          description: Недействительный или истекший refresh токен
+          schema:
+            type: string
+      summary: Обновление токена доступа
+      tags:
+      - Auth
+  /api/services:
+    get:
+      description: Возвращает все зарегистрированные Python-воркеры (APIKey скрыт
+        в ответе).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+            type: array
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список воркеров
+      tags:
+      - Services
+    post:
+      consumes:
+      - application/json
+      description: Добавляет новый Python-воркер в систему для управления камерами.
+      parameters:
+      - description: Конфигурация сервиса (APIUrl, APIKey, Name)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+        "400":
+          description: Неверный формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать новый воркер (сервис)
+      tags:
+      - Services
+  /api/services/{id}:
+    delete:
+      description: Удаляет Python-воркер из БД. Связанные с ним камеры также будут
+        каскадно удалены.
+      parameters:
+      - description: ID сервиса
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Успешное удаление
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить воркер (сервис)
+      tags:
+      - Services
+    get:
+      description: Возвращает данные одного Python-воркера по его ID (APIKey скрыт
+        в ответе).
+      parameters:
+      - description: ID сервиса
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "404":
+          description: Сервис не найден
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить информацию о воркере
+      tags:
+      - Services
+    put:
+      consumes:
+      - application/json
+      description: Обновляет данные существующего Python-воркера по его ID.
+      parameters:
+      - description: ID сервиса
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Новые данные сервиса
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.CounterService'
+        "400":
+          description: Неверный ID или формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера или сервис не найден
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить воркер (сервис)
+      tags:
+      - Services
+  /api/services/{id}/sync:
+    post:
+      description: Принудительно сопоставляет камеры в БД с камерами на воркере. Удаляет
+        лишние на воркере, создает недостающие, обновляет существующие.
+      parameters:
+      - description: ID сервиса (воркера)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"status\":\"success\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный ID сервиса
+          schema:
+            type: string
+        "500":
+          description: Синхронизация завершилась с ошибками
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Синхронизировать камеры с воркером
+      tags:
+      - Services
+  /api/user:
+    get:
+      description: Возвращает данные текущего авторизованного пользователя на основе
+        его JWT токена.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Профиль пользователя
+          schema:
+            $ref: '#/definitions/PeopleCounter_Manager_internal_models.User'
+        "401":
+          description: Не авторизован (отсутствует или неверный токен)
+          schema:
+            type: string
+        "404":
+          description: Пользователь не найден в БД
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить профиль пользователя
+      tags:
+      - Auth
+  /api/users:
+    get:
+      description: Возвращает список всех зарегистрированных пользователей системы
+        (без хэшей паролей).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PeopleCounter_Manager_internal_models.User'
+            type: array
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список пользователей
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Добавляет нового пользователя в систему (только для администраторов).
+        Пароль хэшируется перед сохранением.
+      parameters:
+      - description: Данные нового пользователя
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.UserCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: '{\"id\": 1}'
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: Неверный формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера (возможно логин уже занят)
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать нового пользователя
+      tags:
+      - Users
+  /api/users/{id}:
+    delete:
+      description: Удаляет пользователя из системы. Все привязки пользователя к камерам
+        удаляются каскадно.
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Успешное удаление
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "500":
+          description: Ошибка удаления
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить пользователя
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Обновляет профиль пользователя и его роль. Если передан новый пароль,
+        он будет захэширован и обновлен.
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Обновленные данные пользователя
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.UserUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"status\":\"success\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный ID или формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка обновления
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить данные пользователя
+      tags:
+      - Users
+  /api/users/{id}/counters:
+    get:
+      description: Возвращает массив ID камер, к которым данному пользователю предоставлен
+        доступ.
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"counter_ids\": [1, 2, 3]}'
+          schema:
+            additionalProperties:
+              items:
+                type: integer
+              type: array
+            type: object
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить доступные камеры пользователя
+      tags:
+      - Users Access
+    post:
+      consumes:
+      - application/json
+      description: Полностью перезаписывает список камер, доступных пользователю.
+        Старые привязки удаляются.
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Массив ID камер
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PeopleCounter_Manager_internal_models.UserCountersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"status\":\"success\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный ID или формат JSON
+          schema:
+            type: string
+        "500":
+          description: Ошибка при сохранении прав
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Назначить камеры пользователю
+      tags:
+      - Users Access
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
