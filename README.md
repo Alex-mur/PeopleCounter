@@ -7,6 +7,7 @@
 2. **WorkerYOLO26 (AI/ML Service)** — сервис видеоаналитики на Python (YOLO).
 3. **Front (Frontend)** — пользовательский веб-интерфейс на Vue 3.
 
+![Интерфейс](assets/preview_1.JPG)
 ---
 
 ## 🏗 Архитектура проекта
